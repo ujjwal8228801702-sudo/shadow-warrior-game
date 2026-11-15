@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#080d18">
+<title>SHADOW WARRIOR — अंतिम योद्धा</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080d18;color:#fff;font-family:system-ui,Arial}#game{position:fixed;inset:0}canvas{display:block}
+#hud{position:fixed;inset:0;pointer-events:none;padding:14px;display:flex;flex-direction:column;justify-content:space-between}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.panel{background:#07101dcc;border:1px solid #55c8ff55;border-radius:14px;padding:10px 13px;backdrop-filter:blur(8px);box-shadow:0 5px 25px #0008}.brand{font-weight:900;letter-spacing:2px;color:#7bdcff;font-size:14px}.mission{font-size:12px;color:#d8e7f4;margin-top:4px}.health{width:145px;height:8px;background:#293748;border-radius:8px;margin-top:7px;overflow:hidden}.health span{display:block;height:100%;width:100%;background:linear-gradient(90deg,#26d68a,#b4f36b)}
+#message{position:absolute;top:26%;left:50%;transform:translateX(-50%);text-align:center;width:min(90%,460px);font-weight:700;text-shadow:0 2px 8px #000;font-size:18px}
+#controls{position:fixed;bottom:18px;left:0;right:0;display:flex;justify-content:space-between;align-items:end;padding:0 20px;pointer-events:none}
+.pad{display:grid;grid-template-columns:48px 48px 48px;grid-template-rows:48px 48px 48px;gap:4px;pointer-events:auto}
+button{border:1px solid #8bdcff88;background:#0b1b2dcc;color:white;border-radius:13px;font-size:18px;font-weight:800;touch-action:none;box-shadow:0 4px 14px #0008}
+.pad button{width:48px;height:48px}.up{grid-column:2}.left{grid-column:1;grid-row:2}.down{grid-column:2;grid-row:2}.right{grid-column:3;grid-row:2}
+.actions{display:flex;gap:10px;pointer-events:auto;align-items:end}.action{width:66px;height:66px;border-radius:50%;background:linear-gradient(145deg,#17476a,#0a1728);font-size:12px}.attack{border-color:#ff9a65;background:linear-gradient(145deg,#a33c24,#421b1a)}
+#start{position:fixed;inset:0;background:linear-gradient(180deg,#07101dcc,#050912f2);display:flex;align-items:center;justify-content:center;padding:22px;text-align:center}
+.card{max-width:480px;border:1px solid #65cfff66;border-radius:22px;padding:26px;background:#091626ed;box-shadow:0 20px 70px #000b}.card h1{font-size:clamp(28px,8vw,44px);line-height:1;margin:0;color:#8cddff;letter-spacing:2px}.card p{color:#d4e1ef;line-height:1.6}.primary{padding:14px 26px;border-radius:12px;background:linear-gradient(90deg,#087eb5,#16a6b6);font-size:16px}
+#hint{font-size:11px;color:#9fb5c8;text-align:center;margin-top:8px}
+@media(min-width:800px){.pad button{width:56px;height:56px}.pad{grid-template-columns:56px 56px 56px;grid-template-rows:56px 56px 56px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud">
+ <div class="top">
+  <div class="panel"><div class="brand">SHADOW WARRIOR</div><div class="mission" id="mission">मिशन 01 · शहर पर हमला</div><div class="health"><span id="healthbar"></span></div><div class="mission" id="healthtext">स्वास्थ्य 100%</div></div>
+  <div class="panel"><div class="brand">स्कोर <b id="score">0</b></div><div class="mission">दुश्मन <b id="remaining">3</b></div></div>
+ </div>
+ <div id="message">आर्यन, शहर को बचाओ!</div>
+</div>
+<div id="controls">
+ <div class="pad">
+  <button class="up" data-move="forward">▲</button><button class="left" data-move="left">◀</button><button class="down" data-move="back">▼</button><button class="right" data-move="right">▶</button>
+ </div>
+ <div class="actions"><button class="action" id="run">दौड़</button><button class="action attack" id="attack">वार</button></div>
+</div>
+<div id="start"><div class="card"><div class="brand">एक नई कहानी शुरू होती है</div><h1>SHADOW<br>WARRIOR</h1><p><b>अंतिम योद्धा</b><br>2045. DARK EMPIRE ने तुम्हारे शहर पर हमला कर दिया है। आर्यन बनकर दुश्मनों को हराओ और अपने परिवार को खोजने की यात्रा शुरू करो।</p><button class="primary" id="play">मिशन शुरू करें</button><div id="hint">मोबाइल पर दिशा बटन दबाएँ · वार से दुश्मनों को हराएँ</div></div></div>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+const root=document.getElementById('game');
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x91a9b7);scene.fog=new THREE.Fog(0x91a9b7,24,75);
+const camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,.1,150);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;root.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xc9e8ff,0x28313c,2));
+const sun=new THREE.DirectionalLight(0xffe2bd,2.5);sun.position.set(-12,22,10);sun.castShadow=true;scene.add(sun);
+const mat=(c,rough=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:rough});
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),mat(0x39464a));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(100,50,0x62777b,0x4c5c60);grid.position.y=.015;scene.add(grid);
+for(let i=0;i<24;i++){let h=4+Math.random()*11,w=2+Math.random()*3;let b=new THREE.Mesh(new THREE.BoxGeometry(w,h,3+Math.random()*3),mat(i%3?0x35434d:0x4c4141));b.position.set((Math.random()-.5)*65,h/2,-18-Math.random()*40);b.castShadow=true;b.receiveShadow=true;scene.add(b)}
+function person(color){const g=new THREE.Group();const body=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.9,4,8),mat(color));body.position.y=1.05;body.castShadow=true;g.add(body);const head=new THREE.Mesh(new THREE.SphereGeometry(.32,16,12),mat(0xc58d69));head.position.y=1.85;head.castShadow=true;g.add(head);const pack=new THREE.Mesh(new THREE.BoxGeometry(.55,.65,.25),mat(0x18232e));pack.position.set(0,1.1,-.42);g.add(pack);return g}
+const hero=person(0x176f9b);hero.position.set(0,0,5);scene.add(hero);
+const enemies=[];for(let i=0;i<3;i++){let e=person(0x6c2525);e.position.set((i-1)*4,0,-5-Math.random()*5);scene.add(e);enemies.push({mesh:e,hp:2,alive:true})}
+const keys={};let move={forward:false,back:false,left:false,right:false},running=false,started=false,score=0,hp=100,lastAttack=0;
+document.querySelectorAll('[data-move]').forEach(b=>{let k=b.dataset.move;const on=ev=>{ev.preventDefault();move[k]=true},off=ev=>{ev.preventDefault();move[k]=false};b.addEventListener('pointerdown',on);['pointerup','pointercancel','pointerleave'].forEach(t=>b.addEventListener(t,off))});
+document.getElementById('run').addEventListener('pointerdown',()=>running=true);['pointerup','pointercancel','pointerleave'].forEach(t=>document.getElementById('run').addEventListener(t,()=>running=false));
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Shift')running=true;if(e.key===' ')strike()});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.key==='Shift')running=false});
+function strike(){if(!started||performance.now()-lastAttack<550)return;lastAttack=performance.now();let target=null,dist=3.1;for(const e of enemies){if(!e.alive)continue;let d=hero.position.distanceTo(e.mesh.position);if(d<dist){dist=d;target=e}}if(target){target.hp--;target.mesh.rotation.y+=.5;if(target.hp<=0){target.alive=false;scene.remove(target.mesh);score+=100;document.getElementById('score').textContent=score;document.getElementById('message').textContent='दुश्मन पर विजय! आगे बढ़ो।';}updateRemaining()}else document.getElementById('message').textContent='दुश्मन के पास जाकर वार करें!'}
+document.getElementById('attack').addEventListener('pointerdown',strike);
+function updateRemaining(){let n=enemies.filter(e=>e.alive).length;document.getElementById('remaining').textContent=n;if(n===0){document.getElementById('mission').textContent='मिशन 01 · पूरा हुआ';document.getElementById('message').textContent='शाबाश आर्यन! शहर का रास्ता खुल गया। अगला मिशन जल्द आएगा।'}}
+document.getElementById('play').onclick=()=>{started=true;document.getElementById('start').style.display='none';document.getElementById('message').textContent='DARK EMPIRE के सैनिकों को हराओ!';};
+function animate(){requestAnimationFrame(animate);let dx=0,dz=0;if(keys.w||keys.arrowup||move.forward)dz-=1;if(keys.s||keys.arrowdown||move.back)dz+=1;if(keys.a||keys.arrowleft||move.left)dx-=1;if(keys.d||keys.arrowright||move.right)dx+=1;let len=Math.hypot(dx,dz);if(len&&started){let sp=running||keys.shift?0.17:0.09;hero.position.x+=dx/len*sp;hero.position.z+=dz/len*sp;hero.rotation.y=Math.atan2(dx,dz);hero.position.x=THREE.MathUtils.clamp(hero.position.x,-22,22);hero.position.z=THREE.MathUtils.clamp(hero.position.z,-24,18)}
+for(const e of enemies){if(!e.alive||!started)continue;let d=e.mesh.position.distanceTo(hero.position);if(d<1.65){hp=Math.max(0,hp-.035);document.getElementById('healthbar').style.width=hp+'%';document.getElementById('healthtext').textContent='स्वास्थ्य '+Math.ceil(hp)+'%';if(hp===0){document.getElementById('message').textContent='आर्यन घायल हो गया! पेज रीफ्रेश करके फिर कोशिश करें।';started=false}}else if(d<13){let v=hero.position.clone().sub(e.mesh.position).normalize();e.mesh.position.add(v.multiplyScalar(.018));e.mesh.lookAt(hero.position.x,0,hero.position.z)}}
+camera.position.lerp(new THREE.Vector3(hero.position.x,hero.position.y+6,hero.position.z+10),.08);camera.lookAt(hero.position.x,1,hero.position.z-1);renderer.render(scene,camera)}
+animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+</script>
+</body></html>
