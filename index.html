@@ -52,27 +52,45 @@ for(let i=0;i<34;i++){let h=5+Math.random()*13,w=3+Math.random()*4,d=3+Math.rand
 function part(g,geo,material,x,y,z){const m=new THREE.Mesh(geo,material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m}
 function person(color){
  const g=new THREE.Group(), armor=mat(color,.48), dark=mat(0x111b27,.72), metal=mat(0x9db4c4,.3), skin=mat(0xb98260,.9), glow=mat(color===0x176f9b?0x21d9ff:0xff432e,.25);
- // boots and articulated legs
- for(const x of [-.23,.23]){part(g,new THREE.BoxGeometry(.34,.22,.48),dark,x,.13,.08);part(g,new THREE.CylinderGeometry(.13,.17,.62,10),armor,x,.53,0);part(g,new THREE.SphereGeometry(.19,12,10),dark,x,.83,0)}
- // torso, chest plates and belt
- part(g,new THREE.BoxGeometry(.78,.78,.42),armor,0,1.22,0);
- part(g,new THREE.BoxGeometry(.58,.32,.06),metal,0,1.38,.225);
- part(g,new THREE.BoxGeometry(.28,.22,.07),glow,0,1.39,.27);
- part(g,new THREE.BoxGeometry(.82,.13,.46),dark,0,.91,0);
- // shoulders and arms
- for(const x of [-.53,.53]){part(g,new THREE.SphereGeometry(.22,12,10),metal,x,1.48,0);part(g,new THREE.CylinderGeometry(.12,.15,.48,10),armor,x,1.13,0);part(g,new THREE.SphereGeometry(.14,10,8),dark,x,.86,.02);part(g,new THREE.BoxGeometry(.22,.22,.22),dark,x,.72,.02)}
- // neck, head, helmet and glowing visor
+ // articulated legs: pivots let the warrior walk instead of sliding
+ const legs=[];
+ for(const x of [-.23,.23]){
+  const pivot=new THREE.Group();pivot.position.set(x,.83,0);g.add(pivot);legs.push(pivot);
+  part(pivot,new THREE.CylinderGeometry(.13,.17,.62,10),armor,0,-.30,0);
+  part(pivot,new THREE.SphereGeometry(.19,12,10),dark,0,-.60,0);
+  part(pivot,new THREE.BoxGeometry(.34,.22,.48),dark,0,-.69,.08);
+ }
+ // torso and chest armor
+ const torso=new THREE.Group();torso.position.y=.91;g.add(torso);
+ part(torso,new THREE.BoxGeometry(.78,.78,.42),armor,0,.31,0);
+ part(torso,new THREE.BoxGeometry(.58,.32,.06),metal,0,.47,.225);
+ part(torso,new THREE.BoxGeometry(.28,.22,.07),glow,0,.48,.27);
+ part(torso,new THREE.BoxGeometry(.82,.13,.46),dark,0,-.01,0);
+ // independently swinging arms
+ const arms=[];
+ for(const x of [-.53,.53]){
+  const pivot=new THREE.Group();pivot.position.set(x,1.48,0);g.add(pivot);arms.push(pivot);
+  part(pivot,new THREE.SphereGeometry(.22,12,10),metal,0,0,0);
+  part(pivot,new THREE.CylinderGeometry(.12,.15,.48,10),armor,0,-.34,0);
+  part(pivot,new THREE.SphereGeometry(.14,10,8),dark,0,-.62,.02);
+  part(pivot,new THREE.BoxGeometry(.22,.22,.22),dark,0,-.76,.02);
+ }
+ // head, helmet and visor
  part(g,new THREE.CylinderGeometry(.13,.14,.18,10),skin,0,1.7,0);
  part(g,new THREE.SphereGeometry(.27,16,12),skin,0,1.96,0);
  part(g,new THREE.SphereGeometry(.3,12,8,0,Math.PI*2,0,Math.PI/2),dark,0,2.08,0);
  part(g,new THREE.BoxGeometry(.39,.11,.12),glow,0,1.99,.235);
  part(g,new THREE.BoxGeometry(.12,.22,.12),metal,-.27,1.94,0);part(g,new THREE.BoxGeometry(.12,.22,.12),metal,.27,1.94,0);
- // back armor and shoulder insignia
  part(g,new THREE.BoxGeometry(.48,.52,.2),dark,0,1.2,-.29);
  part(g,new THREE.BoxGeometry(.16,.16,.08),glow,0,1.55,-.17);
- // sword on right side
- const sword=new THREE.Group();part(sword,new THREE.BoxGeometry(.07,.48,.07),metal,0,.24,0);part(sword,new THREE.BoxGeometry(.3,.07,.1),glow,0,0,0);part(sword,new THREE.BoxGeometry(.12,.18,.12),dark,0,-.12,0);sword.position.set(.68,.86,-.05);sword.rotation.z=-.35;g.add(sword);
- return g
+ // sword attached to the right hand; the wrist pivot drives attack animation
+ const swordPivot=new THREE.Group();swordPivot.position.set(.68,.86,-.05);g.add(swordPivot);
+ part(swordPivot,new THREE.BoxGeometry(.07,.62,.07),metal,0,.34,0);
+ part(swordPivot,new THREE.BoxGeometry(.3,.07,.1),glow,0,.02,0);
+ part(swordPivot,new THREE.BoxGeometry(.12,.18,.12),dark,0,-.12,0);
+ swordPivot.rotation.z=-.35;
+ g.userData={legs,arms,torso,swordPivot,phase:Math.random()*6.28,attackUntil:0,hitUntil:0};
+ return g;
 }
 const hero=person(0x176f9b);hero.position.set(0,0,5);scene.add(hero);
 const enemies=[];for(let i=0;i<3;i++){let e=person(0x6c2525);e.position.set((i-1)*4,0,-5-Math.random()*5);scene.add(e);enemies.push({mesh:e,hp:2,alive:true})}
@@ -80,12 +98,12 @@ const keys={};let move={forward:false,back:false,left:false,right:false},running
 document.querySelectorAll('[data-move]').forEach(b=>{let k=b.dataset.move;const on=ev=>{ev.preventDefault();move[k]=true},off=ev=>{ev.preventDefault();move[k]=false};b.addEventListener('pointerdown',on);['pointerup','pointercancel','pointerleave'].forEach(t=>b.addEventListener(t,off))});
 document.getElementById('run').addEventListener('pointerdown',()=>running=true);['pointerup','pointercancel','pointerleave'].forEach(t=>document.getElementById('run').addEventListener(t,()=>running=false));
 addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.key==='Shift')running=true;if(e.key===' ')strike()});addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.key==='Shift')running=false});
-function strike(){if(!started||performance.now()-lastAttack<550)return;lastAttack=performance.now();let target=null,dist=3.1;for(const e of enemies){if(!e.alive)continue;let d=hero.position.distanceTo(e.mesh.position);if(d<dist){dist=d;target=e}}if(target){target.hp--;target.mesh.rotation.y+=.5;if(target.hp<=0){target.alive=false;scene.remove(target.mesh);score+=100;document.getElementById('score').textContent=score;document.getElementById('message').textContent='दुश्मन पर विजय! आगे बढ़ो।';}updateRemaining()}else document.getElementById('message').textContent='दुश्मन के पास जाकर वार करें!'}
+function strike(){if(!started||performance.now()-lastAttack<550)return;lastAttack=performance.now();hero.userData.attackUntil=lastAttack+360;hero.userData.swordPivot.rotation.z=-1.75;let target=null,dist=3.1;for(const e of enemies){if(!e.alive)continue;let d=hero.position.distanceTo(e.mesh.position);if(d<dist){dist=d;target=e}}if(target){target.hp--;target.mesh.rotation.y+=.5;if(target.hp<=0){target.alive=false;scene.remove(target.mesh);score+=100;document.getElementById('score').textContent=score;document.getElementById('message').textContent='दुश्मन पर विजय! आगे बढ़ो।';}updateRemaining()}else document.getElementById('message').textContent='दुश्मन के पास जाकर वार करें!'}
 document.getElementById('attack').addEventListener('pointerdown',strike);
 function updateRemaining(){let n=enemies.filter(e=>e.alive).length;document.getElementById('remaining').textContent=n;if(n===0){document.getElementById('mission').textContent='मिशन 01 · पूरा हुआ';document.getElementById('message').textContent='शाबाश आर्यन! शहर का रास्ता खुल गया। अगला मिशन जल्द आएगा।'}}
 document.getElementById('play').onclick=()=>{started=true;document.getElementById('start').style.display='none';document.getElementById('message').textContent='DARK EMPIRE के सैनिकों को हराओ!';};
-function animate(){requestAnimationFrame(animate);let dx=0,dz=0;if(keys.w||keys.arrowup||move.forward)dz-=1;if(keys.s||keys.arrowdown||move.back)dz+=1;if(keys.a||keys.arrowleft||move.left)dx-=1;if(keys.d||keys.arrowright||move.right)dx+=1;let len=Math.hypot(dx,dz);if(len&&started){let sp=running||keys.shift?0.17:0.09;hero.position.x+=dx/len*sp;hero.position.z+=dz/len*sp;hero.rotation.y=Math.atan2(dx,dz);hero.position.x=THREE.MathUtils.clamp(hero.position.x,-22,22);hero.position.z=THREE.MathUtils.clamp(hero.position.z,-24,18)}
-for(const e of enemies){if(!e.alive||!started)continue;let d=e.mesh.position.distanceTo(hero.position);if(d<1.65){hp=Math.max(0,hp-.035);document.getElementById('healthbar').style.width=hp+'%';document.getElementById('healthtext').textContent='स्वास्थ्य '+Math.ceil(hp)+'%';if(hp===0){document.getElementById('message').textContent='आर्यन घायल हो गया! पेज रीफ्रेश करके फिर कोशिश करें।';started=false}}else if(d<13){let v=hero.position.clone().sub(e.mesh.position).normalize();e.mesh.position.add(v.multiplyScalar(.018));e.mesh.lookAt(hero.position.x,0,hero.position.z)}}
+function animate(){requestAnimationFrame(animate);const now=performance.now();const moving=!!(keys.w||keys.arrowup||keys.s||keys.arrowdown||keys.a||keys.arrowleft||keys.d||keys.arrowright||move.forward||move.back||move.left||move.right);const fast=running||keys.shift;const walkRate=fast?13:8;const walkAmp=moving&&started?1:0;const ud=hero.userData;ud.phase+=0.045;ud.legs[0].rotation.x=Math.sin(ud.phase*walkRate)*.62*walkAmp;ud.legs[1].rotation.x=-Math.sin(ud.phase*walkRate)*.62*walkAmp;ud.arms[0].rotation.x=-Math.sin(ud.phase*walkRate)*.48*walkAmp;ud.arms[1].rotation.x=Math.sin(ud.phase*walkRate)*.48*walkAmp;if(now<ud.attackUntil){ud.swordPivot.rotation.z=THREE.MathUtils.lerp(ud.swordPivot.rotation.z,-1.75,.38)}else{ud.swordPivot.rotation.z=THREE.MathUtils.lerp(ud.swordPivot.rotation.z,-.35,.18)}ud.torso.position.y=.91+(walkAmp?Math.abs(Math.sin(ud.phase*walkRate))*.045:Math.sin(ud.phase*2)*.012);let dx=0,dz=0;if(keys.w||keys.arrowup||move.forward)dz-=1;if(keys.s||keys.arrowdown||move.back)dz+=1;if(keys.a||keys.arrowleft||move.left)dx-=1;if(keys.d||keys.arrowright||move.right)dx+=1;let len=Math.hypot(dx,dz);if(len&&started){let sp=running||keys.shift?0.17:0.09;hero.position.x+=dx/len*sp;hero.position.z+=dz/len*sp;hero.rotation.y=Math.atan2(dx,dz);hero.position.x=THREE.MathUtils.clamp(hero.position.x,-22,22);hero.position.z=THREE.MathUtils.clamp(hero.position.z,-24,18)}
+for(const e of enemies){if(!e.alive)continue;const eu=e.mesh.userData;eu.phase+=.035;eu.legs[0].rotation.x=Math.sin(eu.phase*5)*.12;eu.legs[1].rotation.x=-Math.sin(eu.phase*5)*.12;eu.arms[0].rotation.x=Math.sin(eu.phase*5)*.1;eu.arms[1].rotation.x=-Math.sin(eu.phase*5)*.1;if(!started)continue;let d=e.mesh.position.distanceTo(hero.position);if(d<1.65){hp=Math.max(0,hp-.035);document.getElementById('healthbar').style.width=hp+'%';document.getElementById('healthtext').textContent='स्वास्थ्य '+Math.ceil(hp)+'%';if(hp===0){document.getElementById('message').textContent='आर्यन घायल हो गया! पेज रीफ्रेश करके फिर कोशिश करें।';started=false}}else if(d<13){let v=hero.position.clone().sub(e.mesh.position).normalize();e.mesh.position.add(v.multiplyScalar(.018));e.mesh.lookAt(hero.position.x,0,hero.position.z)}}
 camera.position.lerp(new THREE.Vector3(hero.position.x,hero.position.y+6,hero.position.z+10),.08);camera.lookAt(hero.position.x,1,hero.position.z-1);renderer.render(scene,camera)}
 animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 </script>
